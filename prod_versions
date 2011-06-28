@@ -19,12 +19,10 @@ for name, repo of repos
 
 getSha = (url, callback) ->
   request url: url, (error, response, body) ->
-    if ! error and response.statusCode == 200
-      callback null, (/[a-z0-9]{40}/.exec(body) || [])[0]
-    else if error
-      callback error
+    if not error and response.statusCode is 200
+      callback null, /[a-z0-9]{40}/.exec(body)?[0]
     else
-      callback response.statusCode
+      callback (error or response.statusCode)
 
 
 refTypeMap =
@@ -59,7 +57,7 @@ getProdVersion = (refs, site) ->
 
 
 getVersionsForRepo = (repo) ->
-  exec "git show-ref --dereference", {cwd: repo.path}, (err, stdout, stderr) ->
+  exec "git show-ref --dereference", cwd: repo.path, (err, stdout, stderr) ->
     refs = {}
 
     for line in stdout.split("\n")
@@ -71,5 +69,4 @@ getVersionsForRepo = (repo) ->
     parallel (getProdVersion(refs, site) for site in repo.sites)
 
 
-for key,repo of repos
-  getVersionsForRepo(repo)
+getVersionsForRepo(repo) for key,repo of repos
