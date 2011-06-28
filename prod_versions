@@ -1,0 +1,75 @@
+#!/usr/bin/env coffee
+# vim: ft=coffee
+
+request    = require 'request'
+
+{exec}     = require 'child_process'
+{parallel} = require 'async'
+{resolve}  = require 'path'
+
+fs = require 'fs'
+
+
+repos = new Function( "return " + fs.readFileSync(__dirname + '/repos.js', 'utf8') )()
+
+
+for name, repo of repos
+  repo.path = resolve(repo.path)
+
+
+getSha = (url, callback) ->
+  request url: url, (error, response, body) ->
+    if ! error and response.statusCode == 200
+      callback null, (/[a-z0-9]{40}/.exec(body) || [])[0]
+    else if error
+      callback error
+    else
+      callback response.statusCode
+
+
+refTypeMap =
+  remotes: 'remote'
+  tags: 'tag'
+  heads: 'head'
+
+
+refRe = /^refs\/([^\/]+)\/(.*)$/
+
+
+parseRef = (ref) ->
+  if m = ref?.match(refRe)
+    ref: m[2], type: (refTypeMap[m[1]] || m[1])
+  else
+    ref: ref
+
+
+getProdVersion = (refs, site) ->
+  ->
+    getSha site.url, (err, sha) ->
+      if err
+        console.log "error getting #{site.url}: #{err}"
+      else if refsForSha = refs[sha]
+
+        tags = (ref.ref.replace(/\^.*$/,'') for ref in refsForSha when ref? && ref.type == 'tag')
+        tags = tags.pop() if tags.length == 1
+
+        console.log "%s - %s (%s)", site.name, tags, sha[0...7]
+      else
+        console.log "#{site.name}: no refs for sha #{sha}. Maybe you need to git fetch --tags"
+
+
+getVersionsForRepo = (repo) ->
+  exec "git show-ref --dereference", {cwd: repo.path}, (err, stdout, stderr) ->
+    refs = {}
+
+    for line in stdout.split("\n")
+      [sha,ref] = line.split(/\s+/)
+
+      refs[sha] ||= []
+      refs[sha].push parseRef(ref)
+
+    parallel (getProdVersion(refs, site) for site in repo.sites)
+
+
+for key,repo of repos
+  getVersionsForRepo(repo)
