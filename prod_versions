@@ -10,7 +10,8 @@ request    = require 'request'
 fs = require 'fs'
 
 
-repos = new Function( "return " + fs.readFileSync(__dirname + '/repos.js', 'utf8') )()
+repos  = new Function( "return " + fs.readFileSync(__dirname + '/repos.js', 'utf8') )()
+config = new Function( "return " + fs.readFileSync(__dirname + '/config.js', 'utf8') )()
 
 
 for name, repo of repos
@@ -41,6 +42,25 @@ parseRef = (ref) ->
     ref: ref
 
 
+
+
+if config.comfy_chair?
+  tellTheChair = (site, tags, sha) ->
+    rightNow = Math.floor( new Date().getTime() / 1000 )
+
+    json = {}
+    json[site.name] = ref: tags, sha: sha, name: site.name, lastUpdated: rightNow
+
+    options =
+      url: config.comfy_chair,
+      method: 'post',
+      json: json
+
+    request options, (err, response, body) ->
+      if err
+        console.log "unable to inform comfy_chair: #{err}"
+
+
 getProdVersion = (refs, site) ->
   ->
     getSha site.url, (err, sha) ->
@@ -52,6 +72,7 @@ getProdVersion = (refs, site) ->
         tags = tags.pop() if tags.length == 1
 
         console.log "%s - %s (%s)", site.name, tags, sha[0...7]
+        tellTheChair?( site, tags, sha )
       else
         console.log "#{site.name}: no refs for sha #{sha}. Maybe you need to git fetch --tags"
 
