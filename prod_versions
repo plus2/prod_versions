@@ -2,19 +2,40 @@
 # vim: ft=coffee
 
 request    = require 'request'
+_          = require 'underscore'
 
 {exec}     = require 'child_process'
 {parallel} = require 'async'
-{resolve}  = require 'path'
+{resolve, existsSync}  = require 'path'
 
 fs = require 'fs'
 
 
-repos  = new Function( "return " + fs.readFileSync(__dirname + '/repos.js', 'utf8') )()
-config = new Function( "return " + fs.readFileSync(__dirname + '/config.js', 'utf8') )()
+
+repos = new Function( "return " + fs.readFileSync(__dirname + '/repos.js', 'utf8') )()
+
+
+
+localRepos = __dirname + '/repos.local.js'
+
+if existsSync(localRepos)
+  reposLocal = new Function( "return " + fs.readFileSync(localRepos, 'utf8') )()
+else
+  reposLocal = {}
+
+
+
+configFile = __dirname + '/config.js'
+
+if existsSync(configFile)
+  config = new Function( "return " + fs.readFileSync(configFile, 'utf8') )()
+else
+  config = {}
+
 
 
 for name, repo of repos
+  _.extend repo, reposLocal[name] ? {}
   repo.path = resolve(repo.path)
 
 
@@ -73,8 +94,12 @@ getProdVersion = (refs, site) ->
 
         console.log "%s - %s (%s)", site.name, tags, sha[0...7]
         tellTheChair?( site, tags, sha )
+
+
       else
-        console.log "#{site.name}: no refs for sha #{sha}. Maybe you need to git fetch --tags"
+        console.log "warning #{site.name}: no refs for sha #{sha}. Maybe you need to git fetch --tags"
+        console.log "%s -  (%s)", site.name, sha[0...7]
+        tellTheChair?( site, [], sha )
 
 
 getVersionsForRepo = (repo) ->
@@ -90,4 +115,4 @@ getVersionsForRepo = (repo) ->
     parallel (getProdVersion(refs, site) for site in repo.sites)
 
 
-getVersionsForRepo(repo) for key,repo of repos
+getVersionsForRepo(repo) for key,repo of repos when not repo.ignore
