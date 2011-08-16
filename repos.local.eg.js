@@ -1,0 +1,3 @@
+{
+  migrant: { ignore: true }
+}
