@@ -1,3 +1,3 @@
 {
-  'comfy_chair': 'http://localhost:8082/update/apps'
+  'comfy_chair': 'http://chair.plus2dev.com:8080/update/apps'
 }
