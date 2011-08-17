@@ -1,4 +1,5 @@
 repos.js
+repos.local.js
 .*.sw?
 config.js
 node_modules
